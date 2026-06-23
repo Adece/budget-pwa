@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Budget">
+  <meta name="theme-color" content="#0f0f0f">
+  <link rel="apple-touch-icon" href="/static/icon.svg">
+  <link rel="manifest" href="/static/manifest.json">
+  <title>Budget</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --surface2: #242424;
+      --border: #2e2e2e;
+      --text: #f0ede8;
+      --muted: #888;
+      --accent: #e8973a;
+      --accent-dim: rgba(232, 151, 58, 0.12);
+      --success: #4caf7d;
+      --error: #e05252;
+      --radius: 14px;
+      --font: -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      -webkit-font-smoothing: antialiased;
+      overscroll-behavior: none;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100dvh;
+      padding: env(safe-area-inset-top, 16px) 20px env(safe-area-inset-bottom, 20px);
+      padding-top: max(env(safe-area-inset-top), 20px);
+      padding-bottom: max(env(safe-area-inset-bottom), 20px);
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 28px;
+    }
+
+    .app-name {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .who-toggle {
+      display: flex;
+      background: var(--surface);
+      border-radius: 30px;
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .who-toggle button {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 5px 14px;
+      border-radius: 24px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      font-family: var(--font);
+    }
+
+    .who-toggle button.active {
+      background: var(--surface2);
+      color: var(--text);
+    }
+
+    /* Amount hero */
+    .amount-section {
+      flex: 0 0 auto;
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .currency-label {
+      font-size: 22px;
+      color: var(--muted);
+      font-weight: 300;
+      vertical-align: top;
+      line-height: 1.6;
+    }
+
+    #amount-display {
+      font-size: 80px;
+      font-weight: 700;
+      letter-spacing: -3px;
+      color: var(--text);
+      line-height: 1;
+      display: inline-block;
+      min-width: 2ch;
+    }
+
+    #amount-display.has-value {
+      color: var(--accent);
+    }
+
+    #amount-display.placeholder {
+      color: var(--border);
+    }
+
+    /* Hidden real input for keyboard triggering */
+    #amount-input {
+      position: absolute;
+      opacity: 0;
+      width: 1px;
+      height: 1px;
+      pointer-events: none;
+    }
+
+    .tap-hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 6px;
+      opacity: 0.6;
+    }
+
+    /* Categories */
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .categories {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .cat-btn {
+      background: var(--surface);
+      border: 1.5px solid transparent;
+      border-radius: 12px;
+      padding: 10px 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .cat-btn .icon { font-size: 22px; line-height: 1; }
+    .cat-btn .label { font-size: 11px; color: var(--muted); font-family: var(--font); font-weight: 500; }
+
+    .cat-btn.selected {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .cat-btn.selected .label { color: var(--accent); }
+
+    /* Note */
+    .note-wrap {
+      margin-bottom: 24px;
+    }
+
+    #note {
+      width: 100%;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 13px 16px;
+      font-size: 15px;
+      color: var(--text);
+      font-family: var(--font);
+      outline: none;
+      transition: border-color 0.15s;
+      resize: none;
+    }
+
+    #note::placeholder { color: var(--muted); }
+    #note:focus { border-color: var(--accent); }
+
+    /* Submit */
+    #submit-btn {
+      width: 100%;
+      padding: 17px;
+      background: var(--accent);
+      border: none;
+      border-radius: var(--radius);
+      color: #0f0f0f;
+      font-size: 17px;
+      font-weight: 700;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+      letter-spacing: -0.01em;
+    }
+
+    #submit-btn:active { transform: scale(0.98); opacity: 0.9; }
+    #submit-btn:disabled { opacity: 0.4; cursor: default; }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: max(env(safe-area-inset-bottom), 24px);
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 22px;
+      border-radius: 30px;
+      font-size: 14px;
+      font-weight: 500;
+      opacity: 0;
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 100;
+    }
+
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    #toast.success { border-color: var(--success); color: var(--success); }
+    #toast.error   { border-color: var(--error);   color: var(--error);   }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <span class="app-name">Budget</span>
+    <div class="who-toggle">
+      <button id="btn-me" class="active" onclick="setWho('me')">Me</button>
+      <button id="btn-her" onclick="setWho('her')">Her</button>
+    </div>
+  </header>
+
+  <!-- Amount hero -->
+  <div class="amount-section" onclick="focusAmount()">
+    <span class="currency-label">PLN</span>
+    <span id="amount-display" class="placeholder">0</span>
+    <input id="amount-input" type="number" inputmode="decimal" step="0.01" min="0" oninput="onAmountInput(this.value)">
+    <p class="tap-hint">tap to enter amount</p>
+  </div>
+
+  <!-- Categories -->
+  <div style="margin-bottom: 20px;">
+    <p class="section-label">Category</p>
+    <div class="categories" id="categories"></div>
+  </div>
+
+  <!-- Note -->
+  <div class="note-wrap">
+    <p class="section-label">Note (optional)</p>
+    <textarea id="note" rows="2" placeholder="e.g. oat latte, groceries for dinner…" maxlength="120"></textarea>
+  </div>
+
+  <!-- Submit -->
+  <button id="submit-btn" onclick="submitExpense()">Log expense</button>
+
+  <div id="toast"></div>
+
+  <script>
+    const CATEGORIES = [
+      { id: 'food',      icon: '🛒', label: 'Groceries' },
+      { id: 'dining',    icon: '🍽️', label: 'Dining'    },
+      { id: 'transport', icon: '🚇', label: 'Transport' },
+      { id: 'health',    icon: '💊', label: 'Health'    },
+      { id: 'home',      icon: '🏠', label: 'Home'      },
+      { id: 'fun',       icon: '🎬', label: 'Fun'       },
+      { id: 'clothing',  icon: '👕', label: 'Clothing'  },
+      { id: 'other',     icon: '•••', label: 'Other'   },
+    ];
+
+    let selectedCategory = 'other';
+    let who = 'me';
+    let amountValue = '';
+
+    // Render categories
+    const grid = document.getElementById('categories');
+    CATEGORIES.forEach(cat => {
+      const btn = document.createElement('button');
+      btn.className = 'cat-btn' + (cat.id === selectedCategory ? ' selected' : '');
+      btn.dataset.id = cat.id;
+      btn.innerHTML = `<span class="icon">${cat.icon}</span><span class="label">${cat.label}</span>`;
+      btn.onclick = () => selectCategory(cat.id);
+      grid.appendChild(btn);
+    });
+
+    function selectCategory(id) {
+      selectedCategory = id;
+      document.querySelectorAll('.cat-btn').forEach(b => {
+        b.classList.toggle('selected', b.dataset.id === id);
+      });
+    }
+
+    function setWho(w) {
+      who = w;
+      document.getElementById('btn-me').classList.toggle('active', w === 'me');
+      document.getElementById('btn-her').classList.toggle('active', w === 'her');
+    }
+
+    function focusAmount() {
+      document.getElementById('amount-input').focus();
+    }
+
+    function onAmountInput(val) {
+      amountValue = val;
+      const display = document.getElementById('amount-display');
+      if (!val || val === '0') {
+        display.textContent = '0';
+        display.className = 'placeholder';
+      } else {
+        display.textContent = parseFloat(val).toLocaleString('pl-PL', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+        display.className = 'has-value';
+      }
+    }
+
+    function showToast(msg, type = '') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'show ' + type;
+      setTimeout(() => { t.className = ''; }, 2500);
+    }
+
+    async function submitExpense() {
+      const amount = parseFloat(amountValue);
+      if (!amount || amount <= 0) {
+        showToast('Enter an amount first', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+
+      const whoNames = { me: WHO_ME, her: WHO_HER };
+
+      try {
+        const res = await fetch('/log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount,
+            category: selectedCategory,
+            note: document.getElementById('note').value.trim(),
+            who: whoNames[who],
+          }),
+        });
+
+        if (!res.ok) throw new Error('Server error');
+
+        showToast(`${amount.toFixed(2)} PLN logged ✓`, 'success');
+
+        // Reset form
+        document.getElementById('amount-input').value = '';
+        document.getElementById('note').value = '';
+        amountValue = '';
+        onAmountInput('');
+        selectCategory('other');
+
+      } catch (e) {
+        showToast('Could not save — try again', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Log expense';
+      }
+    }
+  </script>
+
+  <!-- WHO_ME and WHO_HER are injected by the server -->
+  <script>
+    const WHO_ME  = "%%WHO_ME%%";
+    const WHO_HER = "%%WHO_HER%%";
+  </script>
+</body>
+</html>
