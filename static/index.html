@@ -267,7 +267,7 @@
   <div class="amount-section" onclick="focusAmount()">
     <span class="currency-label">PLN</span>
     <span id="amount-display" class="placeholder">0</span>
-    <input id="amount-input" type="number" inputmode="decimal" step="0.01" min="0" oninput="onAmountInput(this.value)">
+    <input id="amount-input" type="text" inputmode="decimal" autocomplete="off" oninput="onAmountInput(this.value)">
     <p class="tap-hint">tap to enter amount</p>
   </div>
 
@@ -333,15 +333,45 @@
     }
 
     function onAmountInput(val) {
-      amountValue = val;
+      // Strip anything that isn't a digit, dot, or comma
+      const sanitized = val.replace(/[^\d.,]/g, '');
+      // Keep only the first separator
+      const firstSep = sanitized.search(/[.,]/);
+      const cleaned = firstSep === -1
+        ? sanitized
+        : sanitized.slice(0, firstSep + 1) + sanitized.slice(firstSep + 1).replace(/[.,]/g, '');
+
+      // Update the hidden input to the cleaned value without moving the cursor awkwardly
+      const input = document.getElementById('amount-input');
+      if (input.value !== cleaned) {
+        const pos = input.selectionStart + (cleaned.length - val.length);
+        input.value = cleaned;
+        try { input.setSelectionRange(pos, pos); } catch(e) {}
+      }
+
+      amountValue = cleaned;
       const display = document.getElementById('amount-display');
-      if (!val || val === '0') {
+
+      if (!cleaned || cleaned === '0') {
         display.textContent = '0';
         display.className = 'placeholder';
-      } else {
-        display.textContent = parseFloat(val).toLocaleString('pl-PL', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-        display.className = 'has-value';
+        return;
       }
+
+      // While the user is still typing after the separator, show the raw string
+      // so the comma/dot doesn't vanish mid-entry (e.g. "12," or "12,5")
+      const endsWithSep = /[.,]$/.test(cleaned);
+      const afterSep = cleaned.split(/[.,]/)[1] ?? '';
+      if (endsWithSep || afterSep.length === 1) {
+        // Show as-is but replace separator with locale comma for display
+        display.textContent = cleaned.replace('.', ',');
+      } else {
+        const numeric = parseFloat(cleaned.replace(',', '.'));
+        display.textContent = isNaN(numeric)
+          ? cleaned
+          : numeric.toLocaleString('pl-PL', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+      }
+      display.className = 'has-value';
     }
 
     function showToast(msg, type = '') {
@@ -352,7 +382,7 @@
     }
 
     async function submitExpense() {
-      const amount = parseFloat(amountValue);
+      const amount = parseFloat(amountValue.replace(',', '.'));
       if (!amount || amount <= 0) {
         showToast('Enter an amount first', 'error');
         return;
@@ -381,7 +411,8 @@
         showToast(`${amount.toFixed(2)} PLN logged ✓`, 'success');
 
         // Reset form
-        document.getElementById('amount-input').value = '';
+        const inp = document.getElementById('amount-input');
+        inp.value = '';
         document.getElementById('note').value = '';
         amountValue = '';
         onAmountInput('');
